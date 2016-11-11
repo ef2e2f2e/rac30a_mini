@@ -3,63 +3,15 @@
 //******************************
 
 
-#define ARDUINODUE
+//#define ARDUINODUE
 //#define ARDUINOADK
 //#define ARDUINOMINI
-//#define NODEMCU
+#define NODEMCU
 
 
 #include "CodesManager.h"
 #include "Keypad.h"
 #include <Arduino.h>
-
-
-#ifdef ARDUINOMINI
-#include <SoftwareSerial.h>
-SoftwareSerial Serial1(10, 11); // RX, TX
-#endif
-#ifdef NODEMCU
-#include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
-#include <ESP8266HTTPClient.h>
-const char* ssid = "andromeda";
-const char* password = "Enricoeandrea0!";
-ESP8266WebServer server(80);
-IPAddress ip(192, 168, 0, 51); 
-IPAddress gateway(192, 168, 0, 1);
-IPAddress subnet(255, 255, 255, 0);
-//#include <SoftwareSerial.h>
-//SoftwareSerial Serial1(13, 15); // RX, TX
-  
-void handleRoot(){
-  Serial.println("Ricevuta richiesta HTTP");
-  String content = "<html><body><H2>Hello, Remote access control service. Use our API calls to access the services.</H2><br>";
-  content = content + "Request parameters: <br> req(=access),key,authkey,opcode,extradata <br> or req(=getkey),usr,pwd</body></html>";
-  server.send(200, "text/html", content);
-}
-
-#define RACREMOTEURL "http://http://astropointing.appspot.com/"
-#define RACREMOTEKEY "krd4-R7y5-SG2M-Kf0c-57Z2"
-
-boolean httpPost(String payload){
-   HTTPClient http;
-   http.begin(RACREMOTEURL);
-   http.addHeader("Content-Type", "application/json");
-   // a simple payload, for doc on payload format see: https://docs.internetofthings.ibmcloud.com/messaging/payload.html
-   Serial.print("POST payload: "); Serial.println(payload);
-   int httpCode = http.POST(payload);
-   Serial.print("HTTP POST Response: "); Serial.println(httpCode); // HTTP code 200 means ok 
-   http.end();
-}
-boolean accessRemoteLog(String channel, String timex, String code, String esito) {
-  //String json = "{ \"channel\" : \"" + channel + "\", \"time\" : \"" + timex + "\",\"code\" : \"" + code + "\",\"esito\" : \"" + esito + "\"}";
-  String x = "ch=" + channel + "&time="+ timex +"&code=" + code + "&esito=" + esito + "&key=" + RACREMOTEKEY;  
-  httpPost(x);
-}
-
-#endif
 
 
 
@@ -75,7 +27,7 @@ boolean accessRemoteLog(String channel, String timex, String code, String esito)
 #define MAXLEN_KEYPADBUFFER             10
 #define MAXLEN_SERIALBUFFER             20
 #define MAXLEN_SERIALXBUFFER            20
-#define MAXLEN__ESITOCOMMANDBUFFER      20
+#define MAXLEN__ESITOCOMMANDBUFFER      100
 //---------------------------------------------------
 #define INPUTMODE_NORMAL 100
 #define INPUTMODE_PRG    200
@@ -86,6 +38,8 @@ boolean accessRemoteLog(String channel, String timex, String code, String esito)
 #define CHANNELKEYPAD    100
 #define CHANNELSERIAL    200
 #define CHANNELSERIALX   300
+#define CHANNELWIFI 400
+
 
 
 
@@ -125,6 +79,128 @@ void apriPortoncino(){digitalWrite(PINPORTONCINO, 0);
                         httpPost("APERTURA PORTONCINO");
                       #endif
 }
+
+
+
+
+#ifdef ARDUINOMINI
+#include <SoftwareSerial.h>
+SoftwareSerial Serial1(10, 11); // RX, TX
+#endif
+#ifdef NODEMCU
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266HTTPClient.h>
+const char* ssid = "andromeda";
+const char* password = "Enricoeandrea0!";
+//const char* ssid = "Sitecom358750";
+//const char* password = "PE8S9U4W";
+
+#define RACREMOTEURL_TRACE "http://racengine-148815.appspot.com/traceAccess"
+#define RACREMOTEKEY "krd4-R7y5-SG2M-Kf0c-57Z2"
+#define RACLOCALKEY "ywt6-GT0Z-fm6s-0cVC-00fF"
+
+ESP8266WebServer server(80);
+IPAddress ip(192, 168, 0, 51); 
+IPAddress gateway(192, 168, 0, 1);
+IPAddress subnet(255, 255, 255, 0);
+//#include <SoftwareSerial.h>
+//SoftwareSerial Serial1(13, 15); // RX, TX
+  
+void handleRoot(){
+  Serial.println("Ricevuta richiesta HTTP: handleRoot");
+  String content = "<html><body><H2>Remote access control service</H2><br><br> Usage parameters: <br>";
+  content = content + "op:       enable|disable|disableall|list|access <br>";
+  content = content + "key:      chiave locale <br>";
+  content = content + "code:     codice (valido solo se comandi: enable, disable, access) <br>";
+  content = content + "ammcode:   codice amministratore (valido solo se comandi: enable, disable,disableall,list) <br>";
+  server.send(200, "text/html", content);
+}
+void handleNotFound(){
+  Serial.println("Ricevuta richiesta HTTP: handleNotFound");
+  String content = "<html><body><H2>Remote access control service</H2><br><br> Page Not Found<br></body></html>";
+  server.send(200, "text/html", content);
+}
+void handleApi(){
+  Serial.println("Ricevuta richiesta HTTP: handleApi");
+  if (server.hasArg("key") && (server.arg ("key") == RACLOCALKEY)){
+   if (server.hasArg("op")){
+    if ( (server.arg("op") == "enable") && 
+       (server.hasArg("code"))        && 
+       (server.arg("code") != "")     && 
+       (server.hasArg("ammcode"))     && 
+       (server.arg("ammcode") != "")) {
+            manageCommand(CHANNELWIFI,server.arg("ammcode") + String(",") + String(ENABLECODE_CMDCODE)+server.arg("code"));
+    } else if ( (server.arg("op") == "disable") && 
+       (server.hasArg("code"))         && 
+       (server.arg("code") != "")      && 
+       (server.hasArg("ammcode"))      && 
+       (server.arg("ammcode") != "")) {
+            manageCommand(CHANNELWIFI,server.arg("ammcode") + String(",") + String(DISABLECODE_CMDCODE)+server.arg("code"));
+    } else if ( (server.arg("op") == "disableall") && 
+       (server.hasArg("ammcode"))         && 
+       (server.arg("ammcode") != "")) {
+            manageCommand(CHANNELWIFI,server.arg("ammcode") + String(",") + String(DISABLEALL_CMDCODE)+server.arg("code"));
+    } else if ( (server.arg("op") == "list") && 
+       (server.hasArg("ammcode"))   && 
+       (server.arg("ammcode") != "")) {
+            manageCommand(CHANNELWIFI,server.arg("ammcode") + String(",") + String(LISTCODES_CMDCODE)+server.arg("ammcode"));
+    } else if ((server.arg("op") == "access") &&
+             (server.arg("code") != "")       ) {
+            manageCommand(CHANNELWIFI,server.arg("code") + String(",") + String(OPEN1_CMDCODE)+server.arg("code"));                
+    }
+   } else {
+     Serial.println("Omissed parameter (op)"); 
+     server.send ( 200, "text/plain", "Omissed parameter (op)"); return;
+   }
+  } else {
+     Serial.println("Not authorized"); 
+     server.send ( 200, "text/plain", "Not authorized"); return;
+  }
+  String content = "<html><body>";
+  content = content + codici.getEsitoBuffer();
+  content = content + "</body></html>";
+  server.send(200, "text/html", content);
+}
+void handleLoopback(){
+  Serial.println("Ricevuta richiesta HTTP: handleLoopback");
+  String message = "Parameters\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += ( server.method() == HTTP_GET ) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for ( uint8_t i = 0; i < server.args(); i++ ) {
+    message += " " + server.argName ( i ) + ": " + server.arg ( i ) + "\n";
+  }
+  server.send ( 200, "text/plain", message );
+}
+
+
+boolean httpPost(String payload){
+   HTTPClient http;
+   http.begin(RACREMOTEURL_TRACE);
+   //http.addHeader("Content-Type", "application/json");
+   // a simple payload, for doc on payload format see: https://docs.internetofthings.ibmcloud.com/messaging/payload.html
+   Serial.print("POST payload: "); Serial.println(payload);
+   int httpCode = http.POST(payload);
+   Serial.print("HTTP POST Response: "); Serial.println(httpCode); // HTTP code 200 means ok 
+   http.end();
+}
+boolean remotelyTraceAccess(String channel, String code, char* esito) {
+  //String json = "{ \"channel\" : \"" + channel + "\", \"time\" : \"" + timex + "\",\"code\" : \"" + code + "\",\"esito\" : \"" + esito + "\"}";
+  String x = "channel=" + channel + "&code=" + code + "&esito=" + esito + "&key=" + RACREMOTEKEY;  
+  Serial.println(x);
+  httpPost(x);
+}
+
+#endif
+
+
 
 
 
@@ -340,10 +416,12 @@ void manageCommand(int channel, String command){
             Serial.print("Opening gate1\n"); 
             if (codici.checkCode(authcode) == CODESLIB_OK) {
               apriPorta();
+              remotelyTraceAccess(String(channel), authcode,"OK");
               sendFeedback(channel,"OK:OPENGATE1");
               Serial.println("Apertura porta!");
               return;
             } else {
+              remotelyTraceAccess(String(channel), authcode,"KO");
               //sendFeedback(channel,"KO:OPENGATE1");
               return;        
             }
@@ -397,9 +475,9 @@ void setup() {
       codici = CodesManager();
       codici.init();
       codici.toSerial();
-      codici.resetCodesMemory("3356335591");
-      codici.enableCode(String("0823968426"));
-      codici.enableCode(String("55555555"));
+      //codici.resetCodesMemory("3356335591");
+      //codici.enableCode(String("0823968426"));
+      //codici.enableCode(String("55555555"));
       //keypad
       mtxkpd = new Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
       //buffers reset
@@ -420,10 +498,9 @@ void setup() {
       Serial.println("IP address: ");
       Serial.println(WiFi.localIP());  
       server.on("/", handleRoot);
-      //server.on("/api", handleAPI);
-      //server.on("/enable", enableAPI);
-      //server.on("/disable", disableAPI);
-      //server.onNotFound(handleNotFound);
+      server.on("/api", handleApi);
+      server.on("/loopback", handleLoopback);
+      server.onNotFound(handleNotFound);
       //here the list of headers to be recorded
       server.begin();
       Serial.println("HTTP server started");

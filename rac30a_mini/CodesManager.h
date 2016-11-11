@@ -2,7 +2,7 @@
 #define CODESMANAGER_h
 
 //-------------------------- CODESMANAGER Class -------------------------------------------------
-
+//170 179 195 645
 #include <Arduino.h>
 
 #define ROM_ADDRESS_CODES   100
@@ -25,8 +25,8 @@
 #define OPEN2_CMDCODE          "10"
 
 
-#define MAXLEN__ESITOCOMMANDBUFFER      50
-#define MAXLEN__ESITOBUFFER      50
+#define MAXLEN__ESITOCOMMANDBUFFER      100
+#define MAXLEN__ESITOBUFFER             100
 
 #define PHYSICALMEMORYLEN 600
 #define PHYSICALMEMORYCODEADDRESS 0

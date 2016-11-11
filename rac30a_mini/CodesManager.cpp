@@ -3,10 +3,10 @@
 #include <String.h>
 
 
-#define ARDUINODUE
+//#define ARDUINODUE
 //#define ARDUINOADK
 //#define ARDUINOMINI
-//#define NODEMCU
+#define NODEMCU
 
 
 //Memory
